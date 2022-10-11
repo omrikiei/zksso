@@ -4,9 +4,8 @@ import {
     prop,
     Experimental, UInt64, CircuitString, PrivateKey, SelfProof, Circuit, arrayProp, Poseidon
 } from 'snarkyjs';
-import User from './user';
 import ZkProgram = Experimental.ZkProgram;
-import {Role} from "./role";
+import {Role, User} from "./sso-lib";
 import {hashWithPrefix} from "snarkyjs/dist/web/lib/hash";
 import {BaseMerkleWitness} from "snarkyjs/dist/web/lib/merkle_tree";
 

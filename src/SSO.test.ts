@@ -9,11 +9,10 @@ import {
   AccountUpdate, Experimental,
 } from 'snarkyjs';
 
-import {Role} from "./role";
-import User from "./user";
-import MerkleTree = Experimental.MerkleTree;
-import {BaseMerkleWitness} from "snarkyjs/dist/web/lib/merkle_tree";
+import { Role, User } from './sso-lib'
+import { BaseMerkleWitness } from "snarkyjs/dist/web/lib/merkle_tree";
 
+const MerkleTree = Experimental.MerkleTree;
 
 function createLocalBlockchain() {
   const Local = Mina.LocalBlockchain();
@@ -23,13 +22,13 @@ function createLocalBlockchain() {
 
 async function localDeploy(
   zkAppInstance: SSO,
-  zkAppPrivatekey: PrivateKey,
+  zkAppPrivateKey: PrivateKey,
   deployerAccount: PrivateKey
 ) {
   const txn = await Mina.transaction(deployerAccount, () => {
     AccountUpdate.fundNewAccount(deployerAccount);
-    zkAppInstance.deploy({ zkappKey: zkAppPrivatekey });
-    zkAppInstance.sign(zkAppPrivatekey);
+    zkAppInstance.deploy({ zkappKey: zkAppPrivateKey });
+    zkAppInstance.sign(zkAppPrivateKey);
   });
   await txn.send().wait();
 }

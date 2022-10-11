@@ -11,7 +11,7 @@ import {
 } from 'snarkyjs';
 
 import {Token, AuthState, PrivateAuthArgs} from "./token";
-import {Role} from "./role";
+import { Role } from './sso-lib'
 import {BaseMerkleWitness} from "snarkyjs/dist/web/lib/merkle_tree";
 
 const TOKEN_LIFETIME = 3600;

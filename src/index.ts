@@ -1,3 +1,3 @@
 import { SSO } from './SSO';
 
-export { SSO };
+export default SSO;
