@@ -1,5 +1,4 @@
-// A user represents a user in the system
-import {arrayProp, CircuitValue, Field, Poseidon, PrivateKey, prop, PublicKey} from "snarkyjs";
+import {arrayProp, CircuitString, CircuitValue, Field, Poseidon, PrivateKey, prop, PublicKey} from "snarkyjs";
 
 export { User, Role}
 
@@ -18,13 +17,13 @@ class User extends CircuitValue {
 }
 
 class Role extends CircuitValue {
-    @prop name: Field;
-    @arrayProp(Field, 10) scopes: Field[];
+    @prop name: CircuitString;
+    @arrayProp(Field, 10) scopes: CircuitString[];
 
-    constructor(name: Field, grantedScopes: string[]) {
+    constructor(name: string, grantedScopes: string[]) {
         super();
-        this.name = name;
-        this.scopes = grantedScopes.map((v) => Field(v));
+        this.name = CircuitString.fromString(name);
+        this.scopes = grantedScopes.map((v) => CircuitString.fromString(v));
     }
 
     hash(): Field {

@@ -22,7 +22,7 @@ class AuthState extends CircuitValue {
         roleStoreCommitment: Field,
         iat: UInt64,
         exp: UInt64,
-        scopes: Field[],
+        scopes: CircuitString[],
     ) {
         super();
         this.userStoreCommitment = userStoreCommitment;
@@ -30,7 +30,7 @@ class AuthState extends CircuitValue {
         this.iat = iat;
         this.exp = exp;
         this.scopes = scopes.map((v) =>
-            Poseidon.hash([Field(exp.toString()), v])
+            Poseidon.hash([Field(exp.toString()), v.hash()])
         );
     }
 
@@ -50,7 +50,7 @@ class PrivateAuthArgs extends CircuitValue {
         roleProof: TreeWitness,
     ) {
         super();
-        this.userProof = userProof.calculateRoot(User.fromPrivateKey(privateKey, role.name).hash())
+        this.userProof = userProof.calculateRoot(User.fromPrivateKey(privateKey, role.hash()).hash())
         this.roleProof = roleProof.calculateRoot(role.hash())
     }
 
@@ -84,8 +84,8 @@ const Token = ZkProgram({
             ) {
                 authProof.verify();
                 let authorized = Field(0);
-                const hashedScope = Poseidon.hash([Field(publicInput.exp.toString()), ...scope.toFields()])
-                publicInput.scopes.forEach((v) => {authorized = Circuit.if(v.equals(hashedScope), authorized.add(0), authorized)})
+                const hashedScope = Poseidon.hash([Field(publicInput.exp.toString()), scope.hash()])
+                publicInput.scopes.forEach((v) => {authorized = Circuit.if(hashedScope.equals(v), authorized.add(0), authorized)})
                 authorized.assertGt(0);
             },
         },

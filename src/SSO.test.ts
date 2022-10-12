@@ -10,7 +10,7 @@ import {
 } from 'snarkyjs';
 
 import { Role, User } from './sso-lib'
-import {MerkleWitness} from "./index";
+import {BaseMerkleWitness} from "snarkyjs/dist/node/lib/merkle_tree";
 
 const MerkleTree = Experimental.MerkleTree;
 
@@ -48,12 +48,13 @@ describe('SSO', () => {
     zkAppPrivateKey = PrivateKey.random();
     zkAppAddress = zkAppPrivateKey.toPublicKey();
     users = [PrivateKey.random(), PrivateKey.random(), PrivateKey.random()];
-    roles = [new Role(Field.fromString("admin"), ["funds:transfer", "funds:view", "users:read", "users:write"]), new Role(Field.fromString("user"), ["funds:view", "users:read"])];
+    const adminRole = new Role("admin", ["funds:transfer", "funds:view", "users:read", "users:write"]);
+    roles = [adminRole, new Role("user", ["funds:view", "users:read"])];
     let userMerkleTree = new Experimental.MerkleTree(users.length / 2);
-    userMerkleTree.setLeaf(BigInt(0), User.fromPrivateKey(users[0], roles[0].name).hash())
-    userMerkleTree.setLeaf(BigInt(1), User.fromPrivateKey(users[1], roles[1].name).hash())
+    userMerkleTree.setLeaf(BigInt(0), User.fromPrivateKey(users[0], roles[0].hash()).hash())
+    userMerkleTree.setLeaf(BigInt(1), User.fromPrivateKey(users[1], roles[1].hash()).hash())
     userMerkleTree.setLeaf(BigInt(2), Field.zero);
-    userMerkleTree.setLeaf(BigInt(4), Field.zero);
+    userMerkleTree.setLeaf(BigInt(3), Field.zero);
 
     let roleMerkleTree = new Experimental.MerkleTree(roles.length / 2);
     roles.forEach((role, i) => {
@@ -86,7 +87,7 @@ describe('SSO', () => {
     });
     await txn.send().wait();
 
-    const adminToken = await zkAppInstance.authenticate(users[0], roles[0], new MerkleWitness(userMerkleTree.prototype.getWitness(BigInt(0))), new MerkleWitness(roleMerkleTree.prototype.getWitness(BigInt(0))));
+    const adminToken = await zkAppInstance.authenticate(users[0], roles[0], new BaseMerkleWitness(userMerkleTree.prototype.getWitness(BigInt(0))), new BaseMerkleWitness(roleMerkleTree.prototype.getWitness(BigInt(0))));
     //const userToken = await zkAppInstance.authenticate(users[1], roles[1], userMerkleTree.prototype.getWitness(BigInt(1)), roleMerkleTree.prototype.getWitness(BigInt(1)));
     //const invalidToken = await zkAppInstance.authenticate(users[2], roles[1], userMerkleTree.prototype.getWitness(BigInt(3)), roleMerkleTree.prototype.getWitness(BigInt(1)));
 
