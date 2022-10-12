@@ -12,7 +12,7 @@ import {
 
 import {Token, AuthState, PrivateAuthArgs} from "./token";
 import { Role } from './sso-lib'
-import {BaseMerkleWitness} from "snarkyjs/dist/web/lib/merkle_tree";
+import type {TreeWitness} from "./index";
 
 const TOKEN_LIFETIME = 3600;
 
@@ -45,7 +45,7 @@ export class SSO extends SmartContract {
       this.roleStoreCommitment.set(roleStoreCommitment);
     }
 
-    @method authenticate(privateKey: PrivateKey, role: Role ,userMerkleProof: BaseMerkleWitness, roleMerkleProof: BaseMerkleWitness): Promise<Proof<AuthState>> {
+    @method authenticate(privateKey: PrivateKey, role: Role ,userMerkleProof: TreeWitness, roleMerkleProof: TreeWitness): Promise<Proof<AuthState>> {
         this.userStoreCommitment.assertEquals(this.userStoreCommitment.get());
         this.roleStoreCommitment.assertEquals(this.roleStoreCommitment.get());
         const iat = this.network.timestamp.get();

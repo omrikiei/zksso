@@ -10,7 +10,7 @@ import {
 } from 'snarkyjs';
 
 import { Role, User } from './sso-lib'
-import { BaseMerkleWitness } from "snarkyjs/dist/web/lib/merkle_tree";
+import {MerkleWitness} from "./index";
 
 const MerkleTree = Experimental.MerkleTree;
 
@@ -86,7 +86,7 @@ describe('SSO', () => {
     });
     await txn.send().wait();
 
-    const adminToken = await zkAppInstance.authenticate(users[0], roles[0], new BaseMerkleWitness(userMerkleTree.prototype.getWitness(BigInt(0))), new BaseMerkleWitness(roleMerkleTree.prototype.getWitness(BigInt(0))));
+    const adminToken = await zkAppInstance.authenticate(users[0], roles[0], new MerkleWitness(userMerkleTree.prototype.getWitness(BigInt(0))), new MerkleWitness(roleMerkleTree.prototype.getWitness(BigInt(0))));
     //const userToken = await zkAppInstance.authenticate(users[1], roles[1], userMerkleTree.prototype.getWitness(BigInt(1)), roleMerkleTree.prototype.getWitness(BigInt(1)));
     //const invalidToken = await zkAppInstance.authenticate(users[2], roles[1], userMerkleTree.prototype.getWitness(BigInt(3)), roleMerkleTree.prototype.getWitness(BigInt(1)));
 

@@ -6,7 +6,7 @@ module.exports = (request, options) => {
       if (pkg.name === 'snarkyjs') {
         return {
           ...pkg,
-          main: pkg.exports.node.import,
+          main: pkg.exports.node.require,
         };
       }
       if (pkg.name === 'node-fetch') {

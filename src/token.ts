@@ -6,8 +6,7 @@ import {
 } from 'snarkyjs';
 import ZkProgram = Experimental.ZkProgram;
 import {Role, User} from "./sso-lib";
-import {hashWithPrefix} from "snarkyjs/dist/web/lib/hash";
-import {BaseMerkleWitness} from "snarkyjs/dist/web/lib/merkle_tree";
+import {TreeWitness} from "./index";
 
 export {AuthState, PrivateAuthArgs, Token}
 
@@ -30,8 +29,8 @@ class AuthState extends CircuitValue {
         this.roleStoreCommitment = roleStoreCommitment;
         this.iat = iat;
         this.exp = exp;
-        this.scopes = scopes.map((v, i) =>
-            hashWithPrefix(exp.toString(), v.toFields())
+        this.scopes = scopes.map((v) =>
+            Poseidon.hash([Field(exp.toString()), v])
         );
     }
 
@@ -41,22 +40,18 @@ class AuthState extends CircuitValue {
 }
 
 class PrivateAuthArgs extends CircuitValue {
-    @prop privateKey: PrivateKey
-    @prop role: Role
-    @prop userProof: BaseMerkleWitness
-    @prop roleProof: BaseMerkleWitness
+    @prop userProof: Field
+    @prop roleProof: Field
 
     constructor(
         privateKey: PrivateKey,
         role: Role,
-        userProof: BaseMerkleWitness,
-        roleProof: BaseMerkleWitness,
+        userProof: TreeWitness,
+        roleProof: TreeWitness,
     ) {
         super();
-        this.privateKey = privateKey
-        this.role = role
-        this.userProof = userProof
-        this.roleProof = roleProof
+        this.userProof = userProof.calculateRoot(User.fromPrivateKey(privateKey, role.name).hash())
+        this.roleProof = roleProof.calculateRoot(role.hash())
     }
 
     hash() {
@@ -73,12 +68,11 @@ const Token = ZkProgram({
                 publicInput: AuthState,
                 privateAuthArgs: PrivateAuthArgs
             ) {
-                const user = User.fromPrivateKey(privateAuthArgs.privateKey, privateAuthArgs.role.name)
                 const now = UInt64.from(new Date().getTime());
                 publicInput.exp.assertGt(now)
                 publicInput.iat.assertLte(now)
-                privateAuthArgs.roleProof.calculateRoot(privateAuthArgs.role.hash()).assertEquals(publicInput.roleStoreCommitment);
-                privateAuthArgs.userProof.calculateRoot(user.hash()).assertEquals(publicInput.userStoreCommitment);
+                privateAuthArgs.roleProof.assertEquals(publicInput.roleStoreCommitment);
+                privateAuthArgs.userProof.assertEquals(publicInput.userStoreCommitment);
             },
         },
         authorize: {
@@ -90,7 +84,7 @@ const Token = ZkProgram({
             ) {
                 authProof.verify();
                 let authorized = Field(0);
-                const hashedScope = hashWithPrefix(publicInput.exp.toString(), scope.toFields())
+                const hashedScope = Poseidon.hash([Field(publicInput.exp.toString()), ...scope.toFields()])
                 publicInput.scopes.forEach((v) => {authorized = Circuit.if(v.equals(hashedScope), authorized.add(0), authorized)})
                 authorized.assertGt(0);
             },
