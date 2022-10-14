@@ -7,7 +7,7 @@ import {
     DeployArgs,
     Permissions,
     PrivateKey,
-    UInt64, Proof,
+    UInt64,
 } from 'snarkyjs';
 
 import {Token, AuthState, PrivateAuthArgs} from "./token";

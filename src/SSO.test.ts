@@ -50,13 +50,18 @@ describe('SSO', () => {
     users = [PrivateKey.random(), PrivateKey.random(), PrivateKey.random()];
     const adminRole = new Role("admin", ["funds:transfer", "funds:view", "users:read", "users:write"]);
     roles = [adminRole, new Role("user", ["funds:view", "users:read"])];
-    let userMerkleTree = new Experimental.MerkleTree(users.length / 2);
+    let userMerkleTree = new Experimental.MerkleTree(10);
+    for (let i = 0; i <= 20; i++) {
+      userMerkleTree.setLeaf(BigInt(i), Field.zero);
+    }
     userMerkleTree.setLeaf(BigInt(0), User.fromPrivateKey(users[0], roles[0].hash()).hash())
     userMerkleTree.setLeaf(BigInt(1), User.fromPrivateKey(users[1], roles[1].hash()).hash())
-    userMerkleTree.setLeaf(BigInt(2), Field.zero);
-    userMerkleTree.setLeaf(BigInt(3), Field.zero);
 
-    let roleMerkleTree = new Experimental.MerkleTree(roles.length / 2);
+
+    let roleMerkleTree = new Experimental.MerkleTree(10);
+    for (let i = 0; i <= 20; i++) {
+      userMerkleTree.setLeaf(BigInt(i), Field.zero);
+    }
     roles.forEach((role, i) => {
       roleMerkleTree.setLeaf(BigInt(i), role.hash())
     })
