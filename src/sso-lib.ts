@@ -27,7 +27,7 @@ class User extends CircuitValue {
 
 class Role extends CircuitValue {
   @prop name: CircuitString;
-  @arrayProp(Field, 10) scopes: CircuitString[];
+  @arrayProp(CircuitString, 10) scopes: CircuitString[];
 
   constructor(name: string, grantedScopes: string[]) {
     super();
@@ -40,9 +40,6 @@ class Role extends CircuitValue {
   }
 
   hash(): Field {
-    return Poseidon.hash([
-      this.name.hash(),
-      ...this.scopes.map((v) => v.hash()),
-    ]);
+    return Poseidon.hash(this.toFields());
   }
 }
