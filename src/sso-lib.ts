@@ -32,13 +32,17 @@ class Role extends CircuitValue {
   constructor(name: string, grantedScopes: string[]) {
     super();
     this.name = CircuitString.fromString(name);
-    for (let i = 0; i <= 10; i++) {
-      this.scopes[i] = CircuitString.fromString('norole');
+    this.scopes = new Array(10);
+    for (let i = 0; i < 10; i++) {
+      this.scopes[i] = CircuitString.fromString('');
     }
     grantedScopes.map((v, i) => (this.scopes[i] = CircuitString.fromString(v)));
   }
 
   hash(): Field {
-    return Poseidon.hash(this.toFields());
+    return Poseidon.hash([
+      this.name.hash(),
+      ...this.scopes.map((v) => v.hash()),
+    ]);
   }
 }
