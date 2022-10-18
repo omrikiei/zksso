@@ -16,6 +16,12 @@ class User extends CircuitValue {
   @prop publicKey: PublicKey;
   @prop roleName: Field;
 
+  constructor(publicKey: PublicKey, roleName: Field) {
+    super();
+    this.publicKey = publicKey;
+    this.roleName = roleName;
+  }
+
   static fromPrivateKey(privateKey: PrivateKey, roleName: Field): User {
     return new User(privateKey.toPublicKey(), roleName);
   }

@@ -12,6 +12,7 @@ import {
 
 import { Role, User } from './sso-lib';
 import { BaseMerkleWitness } from 'snarkyjs/dist/node/lib/merkle_tree';
+import { tree_height } from './index';
 
 const MerkleTree = Experimental.MerkleTree;
 
@@ -58,27 +59,29 @@ describe('SSO', () => {
       'users:read',
       'users:write',
     ]);
-    roles = [adminRole, new Role('user', ['funds:view', 'users:read'])];
-    let userMerkleTree = new Experimental.MerkleTree(10);
-    for (let i = 0; i <= 20; i++) {
-      userMerkleTree.setLeaf(BigInt(i), Field.zero);
-    }
-    userMerkleTree.setLeaf(
-      BigInt(0),
-      User.fromPrivateKey(users[0], roles[0].name.hash()).hash()
-    );
-    userMerkleTree.setLeaf(
-      BigInt(1),
-      User.fromPrivateKey(users[1], roles[1].name.hash()).hash()
-    );
 
-    let roleMerkleTree = new Experimental.MerkleTree(10);
-    for (let i = 0; i <= 20; i++) {
-      userMerkleTree.setLeaf(BigInt(i), Field.zero);
-    }
+    const userRole = new Role('user', ['funds:view', 'users:read']);
+    roles = [adminRole, userRole];
+
+    let userMerkleTree = new Experimental.MerkleTree(tree_height);
+    const admin = User.fromPrivateKey(users[0], roles[0].hash());
+    const user = User.fromPrivateKey(users[1], roles[1].hash());
+
+    const adminHash = admin.hash();
+    console.log('setting leaf for user admin');
+    userMerkleTree.setLeaf(BigInt(0), adminHash);
+
+    console.log('setting leaf for user user');
+    userMerkleTree.setLeaf(BigInt(1), user.hash());
+
+    console.log('creating role tree');
+    let roleMerkleTree = new Experimental.MerkleTree(tree_height);
     roles.forEach((role, i) => {
+      console.log('creating role leaf');
       const roleHash = role.hash();
+      console.log('roleHash: ' + roleHash);
       roleMerkleTree.setLeaf(BigInt(i), roleHash);
+      console.log('created role leaf');
     });
   });
 
@@ -91,7 +94,7 @@ describe('SSO', () => {
 
   it('generates and deploys the `SSO` smart contract and updates state', async () => {
     const zkAppInstance = new SSO(zkAppAddress);
-    console.log(zkAppInstance);
+    console.log('gooogogogogog');
     await localDeploy(zkAppInstance, zkAppPrivateKey, deployerAccount);
     await zkAppInstance.init(Field.random(), Field.random());
     await zkAppInstance.updateStateCommitments(
