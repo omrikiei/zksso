@@ -16,15 +16,18 @@ console.log('Local Blockchain Online!');
 console.log('compiling...');
 await Token.compile();
 await SSO.compile();
-console.log(SSO.Proof());
 
+console.log('deploying contract...');
 let tx = await Mina.transaction(publisherAccount, () => {
   AccountUpdate.fundNewAccount(publisherAccount);
   zkapp.deploy({ zkappKey: zkAppPrivateKey });
 });
-tx.send().wait();
 
-tx = await Mina.transaction(publisherAccount, () => {
-  zkapp.init(Field.zero, Field.zero);
-  zkapp.sign(zkAppPrivateKey);
+await tx.send().wait();
+
+console.log('calling init...');
+let tx2 = await Mina.transaction(publisherAccount, () => {
+  zkapp.init(Field.random(), Field.random());
 });
+
+await tx2.sign([publisherAccount]).send().wait();

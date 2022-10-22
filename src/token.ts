@@ -29,18 +29,14 @@ class AuthState extends CircuitValue {
     roleStoreCommitment: Field,
     iat: UInt64,
     exp: UInt64,
-    scopes: CircuitString[]
+    scopes: Field[]
   ) {
     super();
     this.userStoreCommitment = userStoreCommitment;
     this.roleStoreCommitment = roleStoreCommitment;
     this.iat = iat;
     this.exp = exp;
-    scopes.map((v, i) =>
-      Circuit.asProver(() => {
-        this.scopes[i] = Poseidon.hash([Field(exp.toString()), v.hash()]);
-      })
-    );
+    this.scopes = scopes;
   }
 
   hash() {

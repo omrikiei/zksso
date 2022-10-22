@@ -8,14 +8,21 @@ import {
   Permissions,
   PrivateKey,
   UInt64,
+  Proof,
+  Poseidon,
 } from 'snarkyjs';
 
 import { Token, AuthState, PrivateAuthArgs } from './token.js';
 import { Role } from './sso-lib.js';
-import { AuthProof, MerkleWitness } from './index.js';
+import { MerkleWitness } from './index.js';
 
 const TOKEN_LIFETIME = 3600;
 export { SSO };
+
+export class AuthProof extends Proof<AuthState> {
+  static publicInputType = AuthState;
+  static tag = () => SSO;
+}
 
 class SSO extends SmartContract {
   @state(Field) userStoreCommitment = State<Field>();
@@ -59,13 +66,17 @@ class SSO extends SmartContract {
     this.network.timestamp.assertEquals(this.network.timestamp.get());
     const iat = this.network.timestamp.get();
     const exp = iat.add(UInt64.from(TOKEN_LIFETIME));
+    const scopes = Array<Field>(10);
+    for (let i = 0; i < scopes.length; i++) {
+      scopes[i] = Poseidon.hash([...exp.toFields(), role.scopes[i].hash()]);
+    }
     // TODO: add relevant role scopes
     const authState = new AuthState(
       this.userStoreCommitment.get(),
       this.roleStoreCommitment.get(),
       iat,
       exp,
-      role.scopes
+      scopes
     );
     const privateAuthArgs = new PrivateAuthArgs(
       privateKey,
