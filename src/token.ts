@@ -12,8 +12,8 @@ import {
   Poseidon,
 } from 'snarkyjs';
 import ZkProgram = Experimental.ZkProgram;
-import { Role, User } from './sso-lib';
-import { TreeWitness } from './index';
+import { Role, User } from './sso-lib.js';
+import { TreeWitness } from './index.js';
 
 export { AuthState, PrivateAuthArgs, Token };
 
@@ -36,8 +36,10 @@ class AuthState extends CircuitValue {
     this.roleStoreCommitment = roleStoreCommitment;
     this.iat = iat;
     this.exp = exp;
-    this.scopes = scopes.map((v) =>
-      Poseidon.hash([Field(exp.toString()), v.hash()])
+    scopes.map((v, i) =>
+      Circuit.asProver(() => {
+        this.scopes[i] = Poseidon.hash([Field(exp.toString()), v.hash()]);
+      })
     );
   }
 
@@ -49,18 +51,21 @@ class AuthState extends CircuitValue {
 class PrivateAuthArgs extends CircuitValue {
   @prop userProof: Field;
   @prop roleProof: Field;
+  @prop networkTime: UInt64;
 
   constructor(
     privateKey: PrivateKey,
     role: Role,
     userProof: TreeWitness,
-    roleProof: TreeWitness
+    roleProof: TreeWitness,
+    networkTime: UInt64
   ) {
     super();
     this.userProof = userProof.calculateRoot(
       User.fromPrivateKey(privateKey, role.name.hash()).hash()
     );
     this.roleProof = roleProof.calculateRoot(role.hash());
+    this.networkTime = networkTime;
   }
 
   hash() {
@@ -74,9 +79,8 @@ const Token = ZkProgram({
     authenticate: {
       privateInputs: [PrivateAuthArgs],
       method(publicInput: AuthState, privateAuthArgs: PrivateAuthArgs) {
-        const now = UInt64.from(new Date().getTime());
-        publicInput.exp.assertGt(now);
-        publicInput.iat.assertLte(now);
+        publicInput.exp.assertGt(privateAuthArgs.networkTime);
+        publicInput.iat.assertLte(privateAuthArgs.networkTime);
         privateAuthArgs.roleProof.assertEquals(publicInput.roleStoreCommitment);
         privateAuthArgs.userProof.assertEquals(publicInput.userStoreCommitment);
       },
@@ -90,10 +94,13 @@ const Token = ZkProgram({
       ) {
         authProof.verify();
         let authorized = Field(0);
-        const hashedScope = Poseidon.hash([
-          Field(publicInput.exp.toString()),
-          scope.hash(),
-        ]);
+        let hashedScope = Field.random();
+        Circuit.asProver(() => {
+          hashedScope = Poseidon.hash([
+            Field(publicInput.exp.toString()),
+            scope.hash(),
+          ]);
+        });
         publicInput.scopes.forEach((v) => {
           authorized = Circuit.if(
             hashedScope.equals(v),

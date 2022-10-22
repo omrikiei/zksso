@@ -10,12 +10,13 @@ import {
   UInt64,
 } from 'snarkyjs';
 
-import { Token, AuthState, PrivateAuthArgs } from './token';
-import { Role } from './sso-lib';
-import { AuthProof, MerkleWitness } from './index';
+import { Token, AuthState, PrivateAuthArgs } from './token.js';
+import { Role } from './sso-lib.js';
+import { AuthProof, MerkleWitness } from './index.js';
 
 const TOKEN_LIFETIME = 3600;
 export { SSO };
+
 class SSO extends SmartContract {
   @state(Field) userStoreCommitment = State<Field>();
   @state(Field) roleStoreCommitment = State<Field>();
@@ -55,6 +56,7 @@ class SSO extends SmartContract {
   ): Promise<AuthProof> {
     this.userStoreCommitment.assertEquals(this.userStoreCommitment.get());
     this.roleStoreCommitment.assertEquals(this.roleStoreCommitment.get());
+    this.network.timestamp.assertEquals(this.network.timestamp.get());
     const iat = this.network.timestamp.get();
     const exp = iat.add(UInt64.from(TOKEN_LIFETIME));
     // TODO: add relevant role scopes
@@ -69,12 +71,13 @@ class SSO extends SmartContract {
       privateKey,
       role,
       userMerkleProof,
-      roleMerkleProof
+      roleMerkleProof,
+      this.network.timestamp.get()
     );
     return Token.authenticate(authState, privateAuthArgs);
   }
 
   /*@method authorize(authState: AuthProof) {
 
-    }*/
+      }*/
 }

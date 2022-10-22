@@ -1,5 +1,5 @@
 import { Field, Experimental, CircuitValue, Proof } from 'snarkyjs';
-import { AuthState } from './token';
+import { AuthState } from './token.js';
 
 export const tree_height = 500; // capped by 1000 users
 export class MerkleWitness extends Experimental.MerkleWitness(tree_height) {}
