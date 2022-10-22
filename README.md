@@ -1,4 +1,4 @@
-# Mina zkApp: Zkrbac
+# Mina zkApp: zkSSO
 
 This template uses TypeScript.
 
