@@ -6,22 +6,19 @@ import {
   method,
   DeployArgs,
   Permissions,
-  PrivateKey,
-  UInt64,
-  Proof,
-  Poseidon,
+  Proof, //UInt64, Poseidon, CircuitString,
 } from 'snarkyjs';
 
-import { Token, AuthState, PrivateAuthArgs } from './token.js';
-import { Role } from './sso-lib.js';
-import { MerkleWitness } from './index.js';
+import { AuthState, Token } from './token.js';
+//import {Role} from './sso-lib.js';
+//import {MerkleWitness} from './index.js';
 
-const TOKEN_LIFETIME = 3600;
+//const MAX_TOKEN_LIFETIME = 3600;
 export { SSO };
 
-export class AuthProof extends Proof<AuthState> {
+class AuthProof extends Proof<AuthState> {
   static publicInputType = AuthState;
-  static tag = () => SSO;
+  static tag = () => Token;
 }
 
 class SSO extends SmartContract {
@@ -39,6 +36,10 @@ class SSO extends SmartContract {
   }
 
   @method init(userStoreCommitment: Field, roleStoreCommitment: Field) {
+    const currentUserState = this.userStoreCommitment.get();
+    const currentRoleState = this.roleStoreCommitment.get();
+    this.userStoreCommitment.assertEquals(currentUserState);
+    this.roleStoreCommitment.assertEquals(currentRoleState);
     this.userStoreCommitment.set(userStoreCommitment);
     this.roleStoreCommitment.set(roleStoreCommitment);
   }
@@ -55,40 +56,50 @@ class SSO extends SmartContract {
     this.roleStoreCommitment.set(roleStoreCommitment);
   }
 
-  @method authenticate(
-    privateKey: PrivateKey,
-    role: Role,
-    userMerkleProof: MerkleWitness,
-    roleMerkleProof: MerkleWitness
-  ): Promise<AuthProof> {
-    this.userStoreCommitment.assertEquals(this.userStoreCommitment.get());
-    this.roleStoreCommitment.assertEquals(this.roleStoreCommitment.get());
-    this.network.timestamp.assertEquals(this.network.timestamp.get());
-    const iat = this.network.timestamp.get();
-    const exp = iat.add(UInt64.from(TOKEN_LIFETIME));
-    const scopes = Array<Field>(10);
-    for (let i = 0; i < scopes.length; i++) {
-      scopes[i] = Poseidon.hash([...exp.toFields(), role.scopes[i].hash()]);
-    }
-    // TODO: add relevant role scopes
-    const authState = new AuthState(
-      this.userStoreCommitment.get(),
-      this.roleStoreCommitment.get(),
-      iat,
-      exp,
-      scopes
-    );
-    const privateAuthArgs = new PrivateAuthArgs(
-      privateKey,
-      role,
-      userMerkleProof,
-      roleMerkleProof,
-      this.network.timestamp.get()
-    );
-    return Token.authenticate(authState, privateAuthArgs);
+  /*@method authenticate(
+         privateKey: PrivateKey,
+         role: Role,
+         userMerkleProof: MerkleWitness,
+         roleMerkleProof: MerkleWitness
+     ): Promise<AuthProof> {
+         /*this.userStoreCommitment.assertEquals(this.userStoreCommitment.get());
+         this.roleStoreCommitment.assertEquals(this.roleStoreCommitment.get());
+         this.network.timestamp.assertEquals(this.network.timestamp.get());
+         const iat = this.network.timestamp.get();
+         const exp = iat.add(UInt64.from(TOKEN_LIFETIME));
+         const scopes = Array<Field>(10);
+         for (let i = 0; i < scopes.length; i++) {
+             scopes[i] = Poseidon.hash([...exp.toFields(), role.scopes[i].hash()]);
+         }
+         // TODO: add relevant role scopes
+         const authState = new AuthState(
+             this.userStoreCommitment.get(),
+             this.roleStoreCommitment.get(),
+             iat,
+             exp,
+             scopes
+         );
+         const privateAuthArgs = new PrivateAuthArgs(
+             privateKey,
+             role,
+             userMerkleProof,
+             roleMerkleProof,
+         );
+         return Token.authenticate(authState, privateAuthArgs);
+     }*/
+
+  @method authorize(authState: AuthProof) {
+    //}, scope: CircuitString) {
+    //this.userStoreCommitment.assertEquals(this.userStoreCommitment.get());
+    //this.roleStoreCommitment.assertEquals(this.roleStoreCommitment.get());
+    //this.roleStoreCommitment.get().assertEquals(authState.publicInput.roleStoreCommitment);
+    //this.userStoreCommitment.get().assertEquals(authState.publicInput.userStoreCommitment);
+    //this.network.timestamp.assertEquals(this.network.timestamp.get());
+    //authState.publicInput.iat.assertGte(this.network.timestamp.get());
+    //authState.publicInput.exp.assertLte(this.network.timestamp.get());
+    // authState.publicInput.exp.sub(UInt64.from(MAX_TOKEN_LIFETIME)).assertLte(authState.publicInput.iat);
+    authState.verify();
+    //const hashedScope = Poseidon.hash([authState.publicInput.exp.value, scope.hash()]);
+    // authState.publicInput.scopes.includes(hashedScope);
   }
-
-  /*@method authorize(authState: AuthProof) {
-
-      }*/
 }
