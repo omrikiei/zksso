@@ -38,9 +38,9 @@ class AuthState extends CircuitValue {
     this.scopes = scopes;
   }
 
-  hash() {
-    return Poseidon.hash(this.toFields());
-  }
+  /*hash() {
+        return Poseidon.hash([this.userStoreCommitment, this.roleStoreCommitment, this.iat.value, this.exp.value, ...this.scopes]);
+    }*/
 }
 
 class PrivateAuthArgs extends CircuitValue {
@@ -48,62 +48,67 @@ class PrivateAuthArgs extends CircuitValue {
   @prop userHash: Field;
   @prop roleHash: Field;
 
-  constructor(privateKey: PrivateKey, role: Role) {
+  constructor(networkTime: UInt64, privateKey: PrivateKey, role: Role) {
     super();
     this.roleHash = role.hash();
     this.userHash = User.fromPrivateKey(privateKey, this.roleHash).hash();
+    this.networkTime = networkTime;
   }
 
   hash() {
-    return Poseidon.hash(this.toFields());
+    return Poseidon.hash([
+      this.networkTime.value,
+      this.userHash,
+      this.roleHash,
+    ]);
   }
 }
 
 const Token = ZkProgram({
   publicInput: AuthState,
   methods: {
-    authenticate: {
+    init: {
       privateInputs: [PrivateAuthArgs, MerkleWitness, MerkleWitness],
       method(
         publicInput: AuthState,
         privateAuthArgs: PrivateAuthArgs,
-        roleProof: MerkleWitness,
-        userProof: MerkleWitness
+        roleCommitment: MerkleWitness,
+        userCommitment: MerkleWitness
       ) {
         publicInput.roleStoreCommitment.assertEquals(
-          roleProof.calculateRoot(privateAuthArgs.roleHash)
+          roleCommitment.calculateRoot(privateAuthArgs.roleHash)
         );
 
         publicInput.userStoreCommitment.assertEquals(
-          userProof.calculateRoot(privateAuthArgs.userHash)
+          userCommitment.calculateRoot(privateAuthArgs.userHash)
         );
       },
     },
     /*authorize: {
-            privateInputs: [CircuitString, SelfProof],
-            method(
-                publicInput: AuthState,
-                scope: CircuitString,
-                proof: SelfProof<AuthState>,
-            ) {
-                proof.verify();
-                /*        let authorized = Field(0);
-                        let hashedScope = Field.random();
-                        Circuit.asProver(() => {
-                          hashedScope = Poseidon.hash([
-                            Field(publicInput.exp.toString()),
-                            scope.hash(),
-                          ]);
-                        });
-                        publicInput.scopes.forEach((v) => {
-                          authorized = Circuit.if(
-                            hashedScope.equals(v),
-                            authorized.add(0),
-                            authorized
-                          );
-                        });
-                        authorized.assertGt(0);
-            },
-        },*/
+                privateInputs: [CircuitString, SelfProof],
+                method(
+                    publicInput: AuthState,
+                    scope: CircuitString,
+                    proof: SelfProof<AuthState>,
+                ) {
+                    proof.verify();
+                    /*        let authorized = Field(0);
+                            let hashedScope = Field.random();
+                            Circuit.asProver(() => {
+                              hashedScope = Poseidon.hash([
+                                Field(publicInput.exp.toString()),
+                                scope.hash(),
+                              ]);
+                            });
+                            publicInput.scopes.forEach((v) => {
+                              authorized = Circuit.if(
+                                hashedScope.equals(v),
+                                authorized.add(0),
+                                authorized
+                              );
+                            });
+                            authorized.assertGt(0);
+                },
+            },*/
   },
 });

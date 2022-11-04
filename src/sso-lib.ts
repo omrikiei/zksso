@@ -46,6 +46,11 @@ class Role extends CircuitValue {
   }
 
   hash(): Field {
-    return Poseidon.hash(this.toFields());
+    return Poseidon.hash([
+      this.name.hash(),
+      ...this.scopes.map((v) => {
+        return v.hash();
+      }),
+    ]);
   }
 }

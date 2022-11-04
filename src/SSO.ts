@@ -6,21 +6,14 @@ import {
   method,
   DeployArgs,
   Permissions,
-  Proof,
-  UInt64,
-  Poseidon,
-  CircuitString,
 } from 'snarkyjs';
 
-import { AuthState, Token } from './token.js';
-
-const MAX_TOKEN_LIFETIME = 3600;
 export { SSO };
 
-class AuthProof extends Proof<AuthState> {
+/*class AuthProof extends Proof<AuthState> {
   static publicInputType = AuthState;
   static tag = () => Token;
-}
+}*/
 
 class SSO extends SmartContract {
   @state(Field) userStoreCommitment = State<Field>();
@@ -62,12 +55,12 @@ class SSO extends SmartContract {
          role: Role,
          userMerkleProof: MerkleWitness,
          roleMerkleProof: MerkleWitness
-     ): Promise<AuthProof> {
-         /*this.userStoreCommitment.assertEquals(this.userStoreCommitment.get());
+     ) {
+         this.userStoreCommitment.assertEquals(this.userStoreCommitment.get());
          this.roleStoreCommitment.assertEquals(this.roleStoreCommitment.get());
          this.network.timestamp.assertEquals(this.network.timestamp.get());
          const iat = this.network.timestamp.get();
-         const exp = iat.add(UInt64.from(TOKEN_LIFETIME));
+         const exp = iat.add(UInt64.from(MAX_TOKEN_LIFETIME));
          const scopes = Array<Field>(10);
          for (let i = 0; i < scopes.length; i++) {
              scopes[i] = Poseidon.hash([...exp.toFields(), role.scopes[i].hash()]);
@@ -80,19 +73,23 @@ class SSO extends SmartContract {
              exp,
              scopes
          );
-         const privateAuthArgs = new PrivateAuthArgs(
+         /*const privateAuthArgs = new PrivateAuthArgs(
              privateKey,
              role,
              userMerkleProof,
              roleMerkleProof,
          );
          return Token.authenticate(authState, privateAuthArgs);
+        this.roleStoreCommitment.assertEquals(roleMerkleProof.calculateRoot(role.hash()));
+        const user = User.fromPrivateKey(privateKey, role.hash())
+        this.userStoreCommitment.assertEquals(userMerkleProof.calculateRoot(user.hash()));
      }*/
 
-  @method authorize(authState: AuthProof, scope: CircuitString) {
+  /*@method authorize(authNProof: AuthProof, scope: CircuitString) {
     this.userStoreCommitment.assertEquals(this.userStoreCommitment.get());
     this.roleStoreCommitment.assertEquals(this.roleStoreCommitment.get());
-    this.roleStoreCommitment
+    authNProof.verify();
+    /*this.roleStoreCommitment
       .get()
       .assertEquals(authState.publicInput.roleStoreCommitment);
     this.userStoreCommitment
@@ -110,5 +107,5 @@ class SSO extends SmartContract {
       scope.hash(),
     ]);
     authState.publicInput.scopes.includes(hashedScope);
-  }
+  }*/
 }

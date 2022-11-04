@@ -21,6 +21,7 @@ let zkAppAddress = zkAppPrivateKey.toPublicKey();
 let zkapp = new SSO(zkAppAddress);
 
 let Local = Mina.LocalBlockchain();
+Local.setTimestamp(UInt64.from(new Date().valueOf()));
 Mina.setActiveInstance(Local);
 const publisherAccount = Local.testAccounts[0].privateKey;
 console.log('Local Blockchain Online!');
@@ -35,7 +36,7 @@ let tx = await Mina.transaction(publisherAccount, () => {
   zkapp.deploy({ zkappKey: zkAppPrivateKey });
 });
 
-await tx.send().wait();
+await tx.send();
 
 const iat = Mina.getNetworkState().timestamp;
 const exp = iat.add(UInt64.from(3600));
@@ -58,10 +59,10 @@ const user = User.fromPrivateKey(users[1], roles[1].hash());
 
 const adminHash = admin.hash();
 console.log('setting leaf for user admin');
-userMerkleTree.setLeaf(BigInt(0), adminHash);
+userMerkleTree.setLeaf(0n, adminHash);
 
 console.log('setting leaf for user user');
-userMerkleTree.setLeaf(BigInt(1), user.hash());
+userMerkleTree.setLeaf(1n, user.hash());
 
 console.log('creating role tree');
 let roleMerkleTree = new Experimental.MerkleTree(tree_height);
@@ -81,30 +82,37 @@ let tx2 = await Mina.transaction(publisherAccount, () => {
   zkapp.sign(zkAppPrivateKey);
 });
 
-await tx2.sign().send().wait();
+await tx2.sign().send();
 
 const scopes = Array<Field>(10);
 for (let i = 0; i < scopes.length; i++) {
   scopes[i] = Poseidon.hash([...exp.toFields(), adminRole.scopes[i].hash()]);
 }
 
+const networkTime = Mina.getNetworkState().timestamp;
+
 const authState = new AuthState(
-  zkapp.userStoreCommitment.get(),
-  zkapp.roleStoreCommitment.get(),
-  Mina.getNetworkState().timestamp,
+  zkapp.userStoreCommitment.get().toConstant(),
+  zkapp.roleStoreCommitment.get().toConstant(),
+  networkTime,
   exp,
   scopes
 );
 
-const privateAuthArgs = new PrivateAuthArgs(publisherAccount, adminRole);
+const privateAuthArgs = new PrivateAuthArgs(networkTime, users[0], adminRole);
 
 const rolePath = new MerkleWitness(roleMerkleTree.getWitness(0n));
 const userPath = new MerkleWitness(userMerkleTree.getWitness(0n));
 
-const token = await Token.authenticate(
-  authState,
-  privateAuthArgs,
-  userPath,
-  rolePath
-);
-console.log(token);
+try {
+  /*const tr = await Mina.transaction(publisherAccount, () => {
+        console.log('authn');
+        const tr = zkapp.authenticate(publisherAccount, adminRole, userPath, rolePath);
+        //authState = new AuthState(tr.userStoreCommitment, tr.roleStoreCommitment, tr.iat, tr.exp, tr.scopes)
+    });
+    console.log(tr.toJSON())*/
+  let token = await Token.init(authState, privateAuthArgs, userPath, rolePath);
+  console.log(token);
+} catch (e) {
+  console.log(e);
+}
