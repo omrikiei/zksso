@@ -1,12 +1,11 @@
 import {
   Mina,
   PrivateKey,
-  Field,
   AccountUpdate,
   isReady,
   UInt64,
-  Poseidon,
   Experimental,
+  CircuitString,
 } from 'snarkyjs';
 import { SSO } from './SSO.js';
 import { AuthState, PrivateAuthArgs, Token } from './token.js';
@@ -77,17 +76,16 @@ roles.forEach((role, i) => {
 console.log('calling init...');
 let tx2 = await Mina.transaction(publisherAccount, () => {
   console.log('init');
-  zkapp.init(userMerkleTree.getRoot(), roleMerkleTree.getRoot());
+  zkapp.init(
+    userMerkleTree.getRoot(),
+    roleMerkleTree.getRoot(),
+    UInt64.from(3600)
+  );
   console.log('sign');
   zkapp.sign(zkAppPrivateKey);
 });
 
 await tx2.sign().send();
-
-const scopes = Array<Field>(10);
-for (let i = 0; i < scopes.length; i++) {
-  scopes[i] = Poseidon.hash([...exp.toFields(), adminRole.scopes[i].hash()]);
-}
 
 const networkTime = Mina.getNetworkState().timestamp;
 
@@ -96,7 +94,7 @@ const authState = new AuthState(
   zkapp.roleStoreCommitment.get().toConstant(),
   networkTime,
   exp,
-  scopes
+  adminRole.scopes
 );
 
 const privateAuthArgs = new PrivateAuthArgs(networkTime, users[0], adminRole);
@@ -112,7 +110,25 @@ try {
     });
     console.log(tr.toJSON())*/
   let token = await Token.init(authState, privateAuthArgs, userPath, rolePath);
-  console.log(token);
+  console.log('logged in!');
+  let authorization = await Mina.transaction(publisherAccount, () => {
+    console.log('authorize');
+    zkapp.authorize(token, CircuitString.fromString('funds:transfer'));
+    console.log('sign');
+    zkapp.sign(zkAppPrivateKey);
+  });
+
+  const p = await authorization.prove();
+  console.log('authorized: ' + p);
+  let unauthorized = await Mina.transaction(publisherAccount, () => {
+    console.log('unauthorized');
+    zkapp.authorize(token, CircuitString.fromString('funds:badscope'));
+    console.log('sign');
+    zkapp.sign(zkAppPrivateKey);
+  });
+
+  console.log('unauthorized?: ' + unauthorized);
 } catch (e) {
+  console.log('encountered an ERROR!');
   console.log(e);
 }

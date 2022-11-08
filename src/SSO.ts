@@ -6,18 +6,19 @@ import {
   method,
   DeployArgs,
   Permissions,
+  Poseidon,
+  UInt64,
+  CircuitString,
 } from 'snarkyjs';
 
-export { SSO };
+import { AuthProof } from './token.js';
 
-/*class AuthProof extends Proof<AuthState> {
-  static publicInputType = AuthState;
-  static tag = () => Token;
-}*/
+export { SSO };
 
 class SSO extends SmartContract {
   @state(Field) userStoreCommitment = State<Field>();
   @state(Field) roleStoreCommitment = State<Field>();
+  @state(UInt64) maxTokenLifetime = State<UInt64>();
 
   deploy(args: DeployArgs) {
     super.deploy(args);
@@ -27,85 +28,63 @@ class SSO extends SmartContract {
     });
     this.userStoreCommitment.set(Field.zero);
     this.roleStoreCommitment.set(Field.zero);
+    this.maxTokenLifetime.set(UInt64.from(3600));
   }
 
-  @method init(userStoreCommitment: Field, roleStoreCommitment: Field) {
+  @method init(
+    userStoreCommitment: Field,
+    roleStoreCommitment: Field,
+    maxTokenLifetime: UInt64
+  ) {
     const currentUserState = this.userStoreCommitment.get();
     const currentRoleState = this.roleStoreCommitment.get();
+    const currentMaxTokenLifetime = this.maxTokenLifetime.get();
+    this.maxTokenLifetime.assertEquals(currentMaxTokenLifetime);
     this.userStoreCommitment.assertEquals(currentUserState);
     this.roleStoreCommitment.assertEquals(currentRoleState);
     this.userStoreCommitment.set(userStoreCommitment);
     this.roleStoreCommitment.set(roleStoreCommitment);
+    this.maxTokenLifetime.set(maxTokenLifetime);
   }
 
   @method updateStateCommitments(
     userStoreCommitment: Field,
-    roleStoreCommitment: Field
+    roleStoreCommitment: Field,
+    maxTokenLifetime: UInt64
   ) {
     const currentUserState = this.userStoreCommitment.get();
     const currentRoleState = this.roleStoreCommitment.get();
+    const currentTokenLifetime = this.maxTokenLifetime.get();
     this.userStoreCommitment.assertEquals(currentUserState);
     this.roleStoreCommitment.assertEquals(currentRoleState);
+    this.maxTokenLifetime.assertEquals(currentTokenLifetime);
     this.userStoreCommitment.set(userStoreCommitment);
     this.roleStoreCommitment.set(roleStoreCommitment);
+    this.maxTokenLifetime.set(maxTokenLifetime);
   }
 
-  /*@method authenticate(
-         privateKey: PrivateKey,
-         role: Role,
-         userMerkleProof: MerkleWitness,
-         roleMerkleProof: MerkleWitness
-     ) {
-         this.userStoreCommitment.assertEquals(this.userStoreCommitment.get());
-         this.roleStoreCommitment.assertEquals(this.roleStoreCommitment.get());
-         this.network.timestamp.assertEquals(this.network.timestamp.get());
-         const iat = this.network.timestamp.get();
-         const exp = iat.add(UInt64.from(MAX_TOKEN_LIFETIME));
-         const scopes = Array<Field>(10);
-         for (let i = 0; i < scopes.length; i++) {
-             scopes[i] = Poseidon.hash([...exp.toFields(), role.scopes[i].hash()]);
-         }
-         // TODO: add relevant role scopes
-         const authState = new AuthState(
-             this.userStoreCommitment.get(),
-             this.roleStoreCommitment.get(),
-             iat,
-             exp,
-             scopes
-         );
-         /*const privateAuthArgs = new PrivateAuthArgs(
-             privateKey,
-             role,
-             userMerkleProof,
-             roleMerkleProof,
-         );
-         return Token.authenticate(authState, privateAuthArgs);
-        this.roleStoreCommitment.assertEquals(roleMerkleProof.calculateRoot(role.hash()));
-        const user = User.fromPrivateKey(privateKey, role.hash())
-        this.userStoreCommitment.assertEquals(userMerkleProof.calculateRoot(user.hash()));
-     }*/
-
-  /*@method authorize(authNProof: AuthProof, scope: CircuitString) {
+  @method authorize(authNProof: AuthProof, scope: CircuitString) {
     this.userStoreCommitment.assertEquals(this.userStoreCommitment.get());
     this.roleStoreCommitment.assertEquals(this.roleStoreCommitment.get());
+    this.maxTokenLifetime.assertEquals(this.maxTokenLifetime.get());
     authNProof.verify();
-    /*this.roleStoreCommitment
+    this.roleStoreCommitment
       .get()
-      .assertEquals(authState.publicInput.roleStoreCommitment);
+      .assertEquals(authNProof.publicInput.roleStoreCommitment);
     this.userStoreCommitment
       .get()
-      .assertEquals(authState.publicInput.userStoreCommitment);
+      .assertEquals(authNProof.publicInput.userStoreCommitment);
     this.network.timestamp.assertEquals(this.network.timestamp.get());
-    authState.publicInput.iat.assertGte(this.network.timestamp.get());
-    authState.publicInput.exp.assertLte(this.network.timestamp.get());
-    authState.publicInput.exp
-      .sub(UInt64.from(MAX_TOKEN_LIFETIME))
-      .assertLte(authState.publicInput.iat);
-    authState.verify();
+    authNProof.publicInput.iat.assertGte(this.network.timestamp.get());
+    authNProof.publicInput.exp.assertLte(this.network.timestamp.get());
+    authNProof.publicInput.exp
+      .sub(UInt64.from(this.maxTokenLifetime.get()))
+      .assertLte(authNProof.publicInput.iat);
+    authNProof.verify();
     const hashedScope = Poseidon.hash([
-      authState.publicInput.exp.value,
+      authNProof.publicInput.iat.value,
       scope.hash(),
     ]);
-    authState.publicInput.scopes.includes(hashedScope);
-  }*/
+    authNProof.publicInput.scopes.includes(hashedScope);
+  }
 }
