@@ -1,55 +1,68 @@
-import {
-  arrayProp,
-  CircuitString,
-  CircuitValue,
-  Field,
-  Poseidon,
-  PrivateKey,
-  prop,
-  PublicKey,
-} from 'snarkyjs';
+import { Field, Poseidon, PrivateKey, PublicKey, Struct } from 'snarkyjs';
 
-export { User, Role };
+export { User, Role, Scope };
 
 // A user represents a user in the system
-class User extends CircuitValue {
-  @prop publicKey: PublicKey;
-  @prop roleName: Field;
-
-  constructor(publicKey: PublicKey, roleName: Field) {
-    super();
-    this.publicKey = publicKey;
-    this.roleName = roleName;
-  }
-
+class User extends Struct({
+  publicKey: PublicKey,
+  roleName: Field,
+}) {
   static fromPrivateKey(privateKey: PrivateKey, roleName: Field): User {
-    return new User(privateKey.toPublicKey(), roleName);
+    return new User({
+      publicKey: privateKey.toPublicKey(),
+      roleName: roleName,
+    });
   }
 
   hash(): Field {
-    return Poseidon.hash(this.toFields());
+    return Poseidon.hash([...this.publicKey.toFields(), this.roleName]);
   }
 }
 
-class Role extends CircuitValue {
-  @prop name: CircuitString;
-  @arrayProp(CircuitString, 10) scopes: CircuitString[];
+class Scope extends Struct({
+  name: String,
+  value: Field,
+}) {
+  init(name: string, value: number) {
+    this.name = name;
+    this.value = Field(value);
+  }
+}
 
-  constructor(name: string, grantedScopes: string[]) {
-    super();
-    this.name = CircuitString.fromString(name);
-    this.scopes = new Array(10);
+class Role extends Struct({
+  name: String,
+  scopes: [
+    Scope,
+    Scope,
+    Scope,
+    Scope,
+    Scope,
+    Scope,
+    Scope,
+    Scope,
+    Scope,
+    Scope,
+  ],
+}) {
+  static init(name: string, grantedScopes: Scope[]) {
+    let scopes = new Array(10);
     for (let i = 0; i < 10; i++) {
-      this.scopes[i] = CircuitString.fromString('');
+      if (grantedScopes.length <= i) {
+        scopes[i] = new Scope({ name: 'undefined', value: Field(0) });
+        continue;
+      }
+      scopes[i] = grantedScopes[i];
     }
-    grantedScopes.map((v, i) => (this.scopes[i] = CircuitString.fromString(v)));
+    return new Role({
+      name: name,
+      scopes: scopes,
+    });
   }
 
   hash(): Field {
     return Poseidon.hash([
-      this.name.hash(),
-      ...this.scopes.map((v) => {
-        return v.hash();
+      ...this.scopes.map((x) => {
+        return x.value;
       }),
     ]);
   }

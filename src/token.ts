@@ -1,45 +1,54 @@
 import {
   Field,
-  CircuitValue,
-  prop,
+  Struct,
   Experimental,
   UInt64,
   PrivateKey,
-  arrayProp,
   Poseidon,
   Proof,
-  CircuitString,
 } from 'snarkyjs';
 import ZkProgram = Experimental.ZkProgram;
-import { Role, User } from './sso-lib.js';
-import { MerkleWitness } from './index.js';
+import { Scope, Role, User } from './sso-lib.js';
+import { SSOMerkleWitness } from './index.js';
 
 export { AuthState, PrivateAuthArgs, Token };
 
-class AuthState extends CircuitValue {
-  @prop userStoreCommitment: Field;
-  @prop roleStoreCommitment: Field;
-  @prop iat: UInt64;
-  @prop exp: UInt64;
-  @arrayProp(Field, 10) scopes: Field[];
-
-  constructor(
+class AuthState extends Struct({
+  userStoreCommitment: Field,
+  roleStoreCommitment: Field,
+  iat: UInt64,
+  exp: UInt64,
+  scopes: [
+    Field,
+    Field,
+    Field,
+    Field,
+    Field,
+    Field,
+    Field,
+    Field,
+    Field,
+    Field,
+  ],
+}) {
+  static init(
     userStoreCommitment: Field,
     roleStoreCommitment: Field,
     iat: UInt64,
     exp: UInt64,
-    scopes: CircuitString[]
+    scopes: Scope[]
   ) {
-    super();
-    this.userStoreCommitment = userStoreCommitment;
-    this.roleStoreCommitment = roleStoreCommitment;
-    this.iat = iat;
-    this.exp = exp;
     const hashedScopes = Array<Field>(10);
     for (let i = 0; i < scopes.length; i++) {
-      hashedScopes[i] = Poseidon.hash([iat.value, scopes[i].hash()]);
+      hashedScopes[i] = Poseidon.hash([iat.value, scopes[i].value]);
     }
-    this.scopes = hashedScopes;
+    return new AuthState({
+      userStoreCommitment,
+      roleStoreCommitment,
+      iat,
+      exp,
+      scopes: hashedScopes,
+    });
   }
 
   hash() {
@@ -53,16 +62,18 @@ class AuthState extends CircuitValue {
   }
 }
 
-class PrivateAuthArgs extends CircuitValue {
-  @prop networkTime: UInt64;
-  @prop userHash: Field;
-  @prop roleHash: Field;
-
-  constructor(networkTime: UInt64, privateKey: PrivateKey, role: Role) {
-    super();
-    this.roleHash = role.hash();
-    this.userHash = User.fromPrivateKey(privateKey, this.roleHash).hash();
-    this.networkTime = networkTime;
+class PrivateAuthArgs extends Struct({
+  networkTime: UInt64,
+  userHash: Field,
+  roleHash: Field,
+}) {
+  static init(networkTime: UInt64, privateKey: PrivateKey, role: Role) {
+    const roleHash = role.hash();
+    return new PrivateAuthArgs({
+      roleHash: roleHash,
+      userHash: User.fromPrivateKey(privateKey, roleHash).hash(),
+      networkTime,
+    });
   }
 
   hash() {
@@ -83,12 +94,12 @@ const Token = ZkProgram({
   publicInput: AuthState,
   methods: {
     init: {
-      privateInputs: [PrivateAuthArgs, MerkleWitness, MerkleWitness],
+      privateInputs: [PrivateAuthArgs, SSOMerkleWitness, SSOMerkleWitness],
       method(
         publicInput: AuthState,
         privateAuthArgs: PrivateAuthArgs,
-        userCommitment: MerkleWitness,
-        roleCommitment: MerkleWitness
+        userCommitment: SSOMerkleWitness,
+        roleCommitment: SSOMerkleWitness
       ) {
         publicInput.roleStoreCommitment.assertEquals(
           roleCommitment.calculateRoot(privateAuthArgs.roleHash)
