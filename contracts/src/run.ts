@@ -26,12 +26,14 @@ const publisherAccount = Local.testAccounts[0].privateKey;
 console.log('Local Blockchain Online!');
 
 console.log('compiling token...');
-const tokenCompilation = await Token.compile();
-console.log("compiled token verification key: " + tokenCompilation.verificationKey)
+await Token.compile();
 
 console.log('compiling contract...');
-await SSO.compile();
+const ssoCompilation = await SSO.compile();
 console.log('deploying contract...');
+
+console.log(JSON.stringify({"verificationKey": ssoCompilation.verificationKey, "digest": SSO.digest()}));
+
 let tx = await Mina.transaction(publisherAccount, () => {
   AccountUpdate.fundNewAccount(publisherAccount);
   zkapp.deploy({ zkappKey: zkAppPrivateKey });
