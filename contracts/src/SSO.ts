@@ -11,7 +11,7 @@ import {
   PrivateKey,
 } from 'snarkyjs';
 
-import { AuthProof } from './token.js';
+import { AuthProof, Token } from './token.js';
 import { Scope } from './sso-lib.js';
 import { token_lifetime_secs } from './index.js';
 

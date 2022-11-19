@@ -26,7 +26,9 @@ const publisherAccount = Local.testAccounts[0].privateKey;
 console.log('Local Blockchain Online!');
 
 console.log('compiling token...');
-await Token.compile();
+const tokenCompilation = await Token.compile();
+console.log("compiled token verification key: " + tokenCompilation.verificationKey)
+
 console.log('compiling contract...');
 await SSO.compile();
 console.log('deploying contract...');
