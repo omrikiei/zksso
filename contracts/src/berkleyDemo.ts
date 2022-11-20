@@ -70,7 +70,29 @@ const userPath = SSOMerkleWitness.fromFields(publicInfo.users[users[0].hash().to
     return Field(s)
 }));
 
-console.log("logging in with admin.");
-let token = await Token.init(adminAuthState, adminPrivateAuthArgs, userPath, rolePath);
-console.log("logged in...");
-console.log(token);
+try {
+    console.log("logging in with admin.");
+    let token = await Token.init(adminAuthState, adminPrivateAuthArgs, userPath, rolePath);
+    console.log("logged in...");
+
+
+    let Berkley = Mina.BerkeleyQANet("https://proxy.berkeley.minaexplorer.com/graphql");
+    Mina.setActiveInstance(Berkley);
+    const pub = PublicKey.fromBase58("B62qjrPCFTq4A4EJQLihvVVJSM3VMeVhTd9K8Vyxcn4TY3Yx845jV9p");
+    await fetchAccount({publicKey: pub});
+    let zkapp = new SSO(pub);
+    let updateTx = await Mina.transaction( () => {
+        console.log('checking user.read authorization');
+        zkapp.authorize(
+            token,
+            new Scope({name: "user.read", value: Field(28694)})
+        );
+        zkapp.requireSignature();
+    });
+
+    await updateTx.send();
+    console.log('authorized');
+
+} catch(e) {
+    console.error("AuthN failed: "+ e);
+}
