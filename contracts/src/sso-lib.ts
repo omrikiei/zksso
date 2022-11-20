@@ -5,17 +5,17 @@ export { User, Role, Scope };
 // A user represents a user in the system
 class User extends Struct({
   publicKey: PublicKey,
-  roleName: Field,
+  role: Field,
 }) {
-  static fromPrivateKey(privateKey: PrivateKey, roleName: Field): User {
+  static fromPrivateKey(privateKey: PrivateKey, roleHash: Field): User {
     return new User({
       publicKey: privateKey.toPublicKey(),
-      roleName: roleName,
+      role: roleHash,
     });
   }
 
   hash(): Field {
-    return Poseidon.hash([...this.publicKey.toFields(), this.roleName]);
+    return Poseidon.hash([...this.publicKey.toFields(), this.role]);
   }
 }
 

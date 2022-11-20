@@ -1,5 +1,45 @@
 {
-  "scopes": [],
-  "roles": [],
-  "users": []
+  "scopes": {
+    "28688": "pet.read",
+    "28689": "pet.write",
+    "28690": "inventory.read",
+    "28691": "order.read",
+    "28692": "order.write",
+    "28693": "user.read",
+    "28694": "user.write"
+  },
+  "roles": {
+    "admin": [
+      28688,
+      28689,
+      28690,
+      28691,
+      28692,
+      28693,
+      28694
+    ],
+  "pet_manager": [
+        28688,
+        28689,
+        28690
+      ],
+    "sales_rep": [
+        28690,
+        28691,
+        28692
+      ],
+    "store_manager": [
+        28688,
+        28689,
+        28690,
+        28691,
+        28692
+      ]
+    },
+  "users": {
+    "B62qmmd7jYBhfpGf5Dv4iFhhjU188pfrHwpFkN4CpLqAt5Qi6qCvFoK": "admin",
+    "B62qrPuYVB8GxT7i4Wc9Q7QpTKM9vVjn5uvvJdgPxzrwFokooB5vP5N": "pet_manager",
+    "B62qrhaHBw8JCmQBJWCZjWVnSShB7hGbZY15bsfTsg3mBjzuag2F5n2": "sales_rep",
+    "B62qjkFGGRQTJnViqBHSas2hsdfqwG4V4YWNShsu4tVuU4vbnzcmKyF": "store_manager"
+  }
 }
