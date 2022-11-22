@@ -4,10 +4,11 @@ import {
     PrivateKey,
     Field, UInt64,
     PublicKey,
+    Proof,
     fetchLastBlock, fetchAccount
 } from 'snarkyjs';
 import {SSO} from './SSO.js';
-import {AuthState, PrivateAuthArgs, Token} from './token.js';
+import {AuthProof, AuthState, PrivateAuthArgs, Token} from './token.js';
 import {User, Role, Scope} from './sso-lib.js';
 import {SSOMerkleWitness} from './index.js';
 
@@ -40,59 +41,112 @@ users.push(User.fromPrivateKey(PrivateKey.fromBase58(userKeys[3]), Field(roleHas
 
 let Berkley = Mina.BerkeleyQANet("https://proxy.berkeley.minaexplorer.com/graphql");
 Mina.setActiveInstance(Berkley);
-console.log('compiling token...');
+const start = new Date().getTime()
+console.log('compiling program and smart contract...');
 await Token.compile();
+await SSO.compile()
+const finished = (new Date().getTime() - start) / 1000;
+console.log("took: " + finished);
 let zkapp = new SSO(PublicKey.fromBase58(zkAppAddress));
 await fetchLastBlock();
 await fetchAccount({publicKey: PublicKey.fromBase58(zkAppAddress)});
-const networkTime = await Mina.getNetworkState().timestamp;
-const exp = networkTime.add(new UInt64(3599));
 
-const adminScopes = publicInfo.roles_by_name.admin.scopes.map((value: Scope) => {
-    return new Scope({name: value.name, value: Field(value.value)})
-});
-
-
-const adminAuthState = AuthState.init(
-    zkapp.userStoreCommitment.get().toConstant(),
-    zkapp.roleStoreCommitment.get().toConstant(),
-    networkTime,
-    exp,
-    adminScopes,
-);
-
-const adminPrivateAuthArgs = PrivateAuthArgs.init(networkTime, PrivateKey.fromBase58(userKeys[0]), Role.init("admin", adminScopes));
-
-const rolePath = SSOMerkleWitness.fromFields(publicInfo.roles[publicInfo.roles_by_name.admin.hash].map((s: string) => {
-    return Field(s)
-}));
-const userPath = SSOMerkleWitness.fromFields(publicInfo.users[users[0].hash().toString()].map((s: string) => {
-    return Field(s)
-}));
-
-try {
-    console.log("logging in with admin.");
-    let token = await Token.init(adminAuthState, adminPrivateAuthArgs, userPath, rolePath);
-    console.log("logged in...");
+const getScopesByRole = (roleName: string): Scope[] => {
+    return publicInfo.roles_by_name[roleName].scopes.map((value: Scope) => {
+        return new Scope({name: value.name, value: Field(value.value)})
+    });
+}
 
 
-    let Berkley = Mina.BerkeleyQANet("https://proxy.berkeley.minaexplorer.com/graphql");
-    Mina.setActiveInstance(Berkley);
+const getAuthState = (roleName: string, networkTime: UInt64): AuthState => {
+    const exp = networkTime.add(new UInt64(3599));
+    const scopes = getScopesByRole(roleName);
+    return AuthState.init(
+        zkapp.userStoreCommitment.get().toConstant(),
+        zkapp.roleStoreCommitment.get().toConstant(),
+        networkTime,
+        exp,
+        scopes,
+    );
+}
+
+const getWitness = (merklePath: string[]): SSOMerkleWitness => {
+    return SSOMerkleWitness.fromFields(merklePath.map((s: string) => {
+        return Field(s)
+    }));
+}
+
+const login = async (priv: PrivateKey, role: string, userMerklePath: SSOMerkleWitness): Promise<Proof<AuthState>> => {
+    const networkTime = await Mina.getNetworkState().timestamp;
+    const scopes = getScopesByRole(role);
+    const authState = getAuthState(role, networkTime);
+    const privateArgs = PrivateAuthArgs.init(networkTime, priv, Role.init(role, scopes))
+    const rolePath = getWitness(publicInfo.roles[publicInfo.roles_by_name[role].hash]);
+    return await Token.init(authState, privateArgs, userMerklePath, rolePath)
+}
+
+const authorize = async (token: Proof<AuthState>, scope: Scope): Promise<boolean> => {
     const pub = PublicKey.fromBase58("B62qjrPCFTq4A4EJQLihvVVJSM3VMeVhTd9K8Vyxcn4TY3Yx845jV9p");
     await fetchAccount({publicKey: pub});
     let zkapp = new SSO(pub);
-    let updateTx = await Mina.transaction( () => {
-        console.log('checking user.read authorization');
-        zkapp.authorize(
-            token,
-            new Scope({name: "user.read", value: Field(28694)})
-        );
-        zkapp.requireSignature();
-    });
-
-    await updateTx.send();
-    console.log('authorized');
-
-} catch(e) {
-    console.error("AuthN failed: "+ e);
+    try {
+        const authorizerKey = PrivateKey.fromBase58("EKF6vSvUiZ8JXLhCNzVUMniqo9xisktsej94MbT8cBHyHMUfaPSm")
+        const p = await Mina.transaction(authorizerKey, () => {
+            zkapp.authorize(token, scope)
+        })
+        await p.prove();
+        return true
+    } catch(e) {
+        console.log("unauthorized! " + e)
+        return false
+    }
 }
+
+try {
+    console.log("logging in with pet_manager.");
+    let start = new Date().getTime()
+    const userPath = getWitness(publicInfo.users[users[1].hash().toString()]);
+    let jsonToken;
+    let token;
+    try {
+        token = await login(PrivateKey.fromBase58(userKeys[1]), "pet_manager", userPath);
+        console.log("logged in...");
+        //jsonToken = token.toJSON();
+        //fs.writeFileSync('token.json', JSON.stringify(jsonToken));
+        //console.log("** serialized json **\n " + JSON.stringify(jsonToken) + "\n*****************\n\n");
+
+    } catch (e) {
+        console.log("login failed: " + e)
+    }
+    const finished = (new Date().getTime() - start) / 1000;
+    console.log("took " + finished + " seconds");
+
+
+    if (!token) {
+        process.exit(1)
+    }
+    //token = AuthProof.fromJSON(jsonToken);
+    console.log("** authorization **")
+    let Berkley = Mina.BerkeleyQANet("https://proxy.berkeley.minaexplorer.com/graphql");
+    Mina.setActiveInstance(Berkley);
+    start = new Date().getTime()
+    const authZ1 = await authorize(token, new Scope({name: "pet.write", value: Field(28689)}))
+    const finished1 = (new Date().getTime() - start) / 1000;
+    if (authZ1) {
+        console.log('authorized for pet.write. finished in: ' + finished1 + " seconds");
+    } else {
+        console.log('unauthorized for pet.write. finished in: ' + finished1 + "seconds");
+    }
+    const authZ2 = await authorize(token, new Scope({name: "user.write", value: Field(28694)}))
+    const finished2 = (new Date().getTime() - start) / 1000;
+    if (authZ2) {
+        console.log('authorized for user.write. finished in: ' + finished2 + " seconds");
+    } else {
+        console.log('unauthorized for user.write. finished in: ' + finished2 + "seconds");
+    }
+} catch (e) {
+    console.error("AuthN failed: " + e);
+    process.exit(1);
+}
+
+process.exit(0);
