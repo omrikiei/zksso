@@ -12,7 +12,7 @@ import {
     PrivateKey,
 } from "snarkyjs";
 
-const updateChainState = false
+const updateChainState = true
 
 await isReady;
 

@@ -5,12 +5,80 @@ import {
     Field, UInt64,
     PublicKey,
     Proof,
-    fetchLastBlock, fetchAccount,
+    fetchLastBlock, fetchAccount
 } from 'snarkyjs';
 import {SSO} from './SSO.js';
-import {AuthState, PrivateAuthArgs, Token} from './token.js';
+import {AuthProof, AuthState, PrivateAuthArgs, Token} from './token.js';
 import {User, Role, Scope} from './sso-lib.js';
 import {SSOMerkleWitness} from './index.js';
+
+import { createServer, IncomingMessage, ServerResponse } from 'http';
+
+const port = 5000;
+
+let token: AuthProof;
+
+const server = createServer(async (request: IncomingMessage, response: ServerResponse) => {
+    switch (request.url) {
+        case '/authn': {
+            if (request.method === 'GET') {
+                console.log("logging in with pet_manager.");
+                let start = new Date().getTime()
+                const userPath = getWitness(publicInfo.users[users[1].hash().toString()]);
+                try {
+                    token = await login(PrivateKey.fromBase58(userKeys[1]), "pet_manager", userPath);
+                    console.log("logged in...");
+                    response.statusCode = 200
+                } catch (e) {
+                    console.log("login failed: " + e)
+                    response.statusCode = 401;
+                }
+                const finished = (new Date().getTime() - start) / 1000;
+                console.log("took " + finished + " seconds");
+            }
+            return response.end();
+        }
+        case '/authz1': {
+            if (!token) {
+                response.statusCode = 401;
+                response.end();
+                break;
+            }
+            console.log("** authorization **")
+            const start = new Date().getTime()
+            const authZ1 = await authorize(token, new Scope({name: "pet.write", value: Field(28689)}))
+            const finished1 = (new Date().getTime() - start) / 1000;
+            if (authZ1) {
+                console.log('authorized for pet.write. finished in: ' + finished1 + " seconds");
+                response.statusCode = 200;
+            } else {
+                console.log('unauthorized for pet.write. finished in: ' + finished1 + "seconds");
+                response.statusCode = 403;
+            }
+            response.end();
+            break;
+        }
+        case '/authz2': {
+            console.log("** authorization **")
+            const start = new Date().getTime()
+            const authZ1 = await authorize(token, new Scope({name: "pet.write", value: Field(28689)}))
+            const finished1 = (new Date().getTime() - start) / 1000;
+            if (authZ1) {
+                console.log('authorized for pet.write. finished in: ' + finished1 + " seconds");
+                response.statusCode = 200;
+            } else {
+                console.log('unauthorized for pet.write. finished in: ' + finished1 + "seconds");
+                response.statusCode = 403;
+            }
+            response.end();
+            break;
+        }
+        default: {
+            response.statusCode = 404;
+            response.end();
+        }
+    }
+});
 
 await isReady;
 
@@ -90,13 +158,11 @@ const authorize = async (token: Proof<AuthState>, scope: Scope): Promise<boolean
     await fetchAccount({publicKey: pub});
     let zkapp = new SSO(pub);
     try {
-        zkapp.authorize(token, scope)
         const authorizerKey = PrivateKey.fromBase58("EKF6vSvUiZ8JXLhCNzVUMniqo9xisktsej94MbT8cBHyHMUfaPSm")
-        const tx = await Mina.transaction(authorizerKey, () => {
+        const p = await Mina.transaction(authorizerKey, () => {
             zkapp.authorize(token, scope)
         })
-        const p = await tx.prove();
-        console.log(p);
+        await p.prove();
         return true
     } catch(e) {
         console.log("unauthorized! " + e)
@@ -104,6 +170,8 @@ const authorize = async (token: Proof<AuthState>, scope: Scope): Promise<boolean
     }
 }
 
+server.listen(port, "localhost");
+/*
 try {
     console.log("logging in with pet_manager.");
     let start = new Date().getTime()
@@ -112,8 +180,10 @@ try {
     try {
         token = await login(PrivateKey.fromBase58(userKeys[1]), "pet_manager", userPath);
         console.log("logged in...");
-        const jsonToken = token.toJSON();
-        fs.writeFileSync('token.json', JSON.stringify(jsonToken));
+        //jsonToken = token.toJSON();
+        //fs.writeFileSync('token.json', JSON.stringify(jsonToken));
+        //console.log("** serialized json **\n " + JSON.stringify(jsonToken) + "\n*****************\n\n");
+
     } catch (e) {
         console.log("login failed: " + e)
     }
@@ -124,6 +194,7 @@ try {
     if (!token) {
         process.exit(1)
     }
+    //token = AuthProof.fromJSON(jsonToken);
     console.log("** authorization **")
     let Berkley = Mina.BerkeleyQANet("https://proxy.berkeley.minaexplorer.com/graphql");
     Mina.setActiveInstance(Berkley);
@@ -147,4 +218,4 @@ try {
     process.exit(1);
 }
 
-process.exit(0);
+process.exit(0);**/
